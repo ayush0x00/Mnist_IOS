@@ -4,6 +4,7 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 from torch.utils.data import DataLoader
 from CNN import CNN
+from torch.utils.mobile_optimizer import optimize_for_mobile
 import torch.nn as nn
 
 
@@ -17,6 +18,10 @@ class Trainer:
         self.max_epochs = max_epochs
         self.model = model
         # self.model = self.model.to("mps")
+
+    def load_model(self,path:str):
+        ckp = torch.load(path)
+        self.model = self.model.load_state_dict(ckp)
 
     def train(self):
         for epoch in range(self.max_epochs):
@@ -42,6 +47,11 @@ class Trainer:
                 print(f"Val loss | {loss.item():.3f}")
 
         torch.save(self.model.state_dict(),"model.pt")
+
+    def save_optimized_model(self,random_example,path:str="optimized_model.pt"):
+        traced_module = torch.jit.trace(self.model,random_example)
+        optimized_model = optimize_for_mobile(traced_module)
+        optimized_model.save(path)
 
 
 def create_dataloaders(download=False):
@@ -69,9 +79,10 @@ def main():
     loss = nn.CrossEntropyLoss()
     loaders = create_dataloaders()
     trainer = Trainer(model, loss, optimizer, loaders, 2)
-    # trainer.train()
-    imgs,labels = next(iter(loaders['test']))
-    load_and_eval(model,"model.pt",imgs,labels)
+    trainer.train()
+    # imgs,labels = next(iter(loaders['test']))
+    # load_and_eval(model,"model.pt",imgs,labels)
+
 
 
 if __name__ == "__main__":
